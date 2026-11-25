@@ -10,6 +10,7 @@
 | [word/F2_Diploma_Chapter1_Zderchuk.docx](word/F2_Diploma_Chapter1_Zderchuk.docx) | Розділ 1 у форматі .docx (монолітний документ) |
 | [0_intro.md](0_intro.md) | Вступ та науковий апарат |
 | [srs.md](srs.md) | Специфікація вимог (SRS, ISO/IEC/IEEE 29148) |
+| [api/openapi.yaml](api/openapi.yaml) | Контракт REST API (OpenAPI 3.0.3) |
 | [adr/](adr/) | Architecture Decision Records ([ADR-001](adr/0001-choice-of-technology.md)) |
 | [1_analysis.md](1_analysis.md) | Розділ 1. Аналіз предметної області та постановка задачі |
 | [2_design.md](2_design.md) | Розділ 2. Проєктування архітектури системи |
@@ -22,7 +23,7 @@
 |---|---|---|---|
 | 1 | Аналіз предметної області та існуючих програмних аналогів | Жовтень 2026 | Done |
 | 2 | Формування вимог (SRS за ISO/IEC/IEEE 29148) та обґрунтування технологічного стеку | Листопад 2026 | Done |
-| 3 | Проєктування архітектури (C4 Model, ADR, ERD, OpenAPI 3.0) | Грудень 2026 – середина січня 2027 | In Progress |
+| 3 | Проєктування архітектури (C4 Model, ADR, ERD, OpenAPI 3.0) | Грудень 2026 – середина січня 2027 | Done |
 | 4 | Алгоритмізація критичних вузлів та реалізація базового Django REST API (ledger, wallets, jars) | Друга половина січня – лютий 2027 | To Do |
 | 5 | Реалізація клієнтського застосунку Next.js та LLM-асистента | Березень 2027 | To Do |
 | 6 | Контейнеризація, CI/CD (GitHub Actions) та контур спостережуваності | Середина березня – 10 квітня 2027 | To Do |
