@@ -2,12 +2,15 @@
 
 Навігаційний дашборд документації за принципом Documentation as Code.
 
+[![Docs Quality Gate](https://github.com/welodyq12345/F2-diploma-project/actions/workflows/docs-linter.yml/badge.svg)](https://github.com/welodyq12345/F2-diploma-project/actions/workflows/docs-linter.yml)
+
 ## Структура пояснювальної записки
 
 | Файл | Розділ |
 |---|---|
 | [proposal.md](proposal.md) | Thesis Proposal |
 | [word/F2_Diploma_Chapter1_Zderchuk.docx](word/F2_Diploma_Chapter1_Zderchuk.docx) | Розділ 1 у форматі .docx (монолітний документ) |
+| [word/F2_Diploma_Chapters1-2_Zderchuk.docx](word/F2_Diploma_Chapters1-2_Zderchuk.docx) | Зведений моноліт Розділів 1 та 2 (.docx) |
 | [0_intro.md](0_intro.md) | Вступ та науковий апарат |
 | [srs.md](srs.md) | Специфікація вимог (SRS, ISO/IEC/IEEE 29148) |
 | [api/openapi.yaml](api/openapi.yaml) | Контракт REST API (OpenAPI 3.0.3) |
