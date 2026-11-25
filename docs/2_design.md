@@ -292,25 +292,25 @@ erDiagram
 
 ```mermaid
 flowchart TD
-    S([Початок]) --> IN[/Ввід: E, A := E.amount/]
-    IN --> D1{E.event_id ∈ ProcessedEvents?}
-    D1 -- Так --> F([Кінець])
-    D1 -- Ні --> RD[/Ввід: R 1..n := активні правила/]
-    RD --> D2{n = 0 OR ΣR i .percent ≠ 100?}
-    D2 -- Так --> ERR[/Вивід: помилка конфігурації/] --> F
-    D2 -- Ні --> P1[allocated := 0; i := 1]
-    P1 --> D3{i ≤ n?}
-    D3 -- Так --> D4{i < n?}
-    D4 -- Так --> P2[share i := ROUND A × R i .percent / 100, 2]
-    D4 -- Ні --> P3[share i := A − allocated]
-    P2 --> P4[allocated := allocated + share i ; i := i + 1]
+    S(["Початок"]) --> IN[/"Ввід: E; A := E.amount"/]
+    IN --> D1{"E.event_id ∈ ProcessedEvents?"}
+    D1 -- Так --> F(["Кінець"])
+    D1 -- Ні --> RD[/"Ввід: R[1..n] := активні правила"/]
+    RD --> D2{"n = 0 OR Σ R[i].percent ≠ 100?"}
+    D2 -- Так --> ERR[/"Вивід: помилка конфігурації"/] --> F
+    D2 -- Ні --> P1["allocated := 0; i := 1"]
+    P1 --> D3{"i ≤ n?"}
+    D3 -- Так --> D4{"i < n?"}
+    D4 -- Так --> P2["share[i] := ROUND(A × R[i].percent / 100, 2)"]
+    D4 -- Ні --> P3["share[i] := A − allocated"]
+    P2 --> P4["allocated := allocated + share[i]; i := i + 1"]
     P3 --> P4
     P4 --> D3
-    D3 -- Ні --> P5[entries := Debit Jar R i  share i ∪ Credit Income A]
-    P5 --> D5{ΣDebit = ΣCredit AND allocated = A?}
-    D5 -- Так --> P6[COMMIT entries, E.event_id]
-    D5 -- Ні --> P7[ROLLBACK]
-    P6 --> OUT[/Вивід: transaction_id/] --> F
+    D3 -- Ні --> P5["entries := Debit(Jar[R[i].jar], share[i]) ∪ Credit(Income, A)"]
+    P5 --> D5{"Σ Debit = Σ Credit AND allocated = A?"}
+    D5 -- Так --> P6["COMMIT(entries, E.event_id)"]
+    D5 -- Ні --> P7["ROLLBACK"]
+    P6 --> OUT[/"Вивід: transaction_id"/] --> F
     P7 --> F
 ```
 
@@ -328,27 +328,27 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    S([Початок]) --> IN[/Ввід: Entry 1..m, B, d/]
-    IN --> D1{m < 2?}
-    D1 -- Так --> E1[/Вивід: 422/] --> F([Кінець])
-    D1 -- Ні --> P1[j := 1]
-    P1 --> D2{j ≤ m?}
-    D2 -- Так --> D3{Entry j .currency = B?}
-    D3 -- Так --> P2[rate := 1]
-    D3 -- Ні --> P3[rate := FxRate Entry j .currency, B, d]
-    P3 --> D4{rate = NULL?}
+    S(["Початок"]) --> IN[/"Ввід: Entry[1..m], B, d"/]
+    IN --> D1{"m < 2?"}
+    D1 -- Так --> E1[/"Вивід: 422"/] --> F(["Кінець"])
+    D1 -- Ні --> P1["j := 1"]
+    P1 --> D2{"j ≤ m?"}
+    D2 -- Так --> D3{"Entry[j].currency = B?"}
+    D3 -- Так --> P2["rate := 1"]
+    D3 -- Ні --> P3["rate := FxRate(Entry[j].currency, B, d)"]
+    P3 --> D4{"rate = NULL?"}
     D4 -- Так --> E1
     D4 -- Ні --> P4
-    P2 --> P4[Entry j .amount_base := ROUND Entry j .amount × rate, 2 ; j := j + 1]
+    P2 --> P4["Entry[j].amount_base := ROUND(Entry[j].amount × rate, 2); j := j + 1"]
     P4 --> D2
-    D2 -- Ні --> P5[delta := ΣDebit.amount_base − ΣCredit.amount_base]
-    P5 --> D5{delta ≠ 0 AND abs delta ≤ 0.01 × m?}
-    D5 -- Так --> P6[Entry m+1 := FxDifference delta ]
-    D5 -- Ні --> D6{delta ≠ 0?}
+    D2 -- Ні --> P5["delta := Σ Debit.amount_base − Σ Credit.amount_base"]
+    P5 --> D5{"delta ≠ 0 AND |delta| ≤ 0.01 × m?"}
+    D5 -- Так --> P6["Entry[m+1] := FxDifference(delta)"]
+    D5 -- Ні --> D6{"delta ≠ 0?"}
     D6 -- Так --> E1
     D6 -- Ні --> P7
-    P6 --> P7[COMMIT Transaction, Entry, OutboxEvent]
-    P7 --> OUT[/Вивід: 201, transaction_id/] --> F
+    P6 --> P7["COMMIT(Transaction, Entry[1..m], OutboxEvent)"]
+    P7 --> OUT[/"Вивід: 201, transaction_id"/] --> F
 ```
 
 ## 2.7 Інтеграційний аудит та верифікація цілісності доменів
