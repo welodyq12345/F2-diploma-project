@@ -1,0 +1,520 @@
+openapi: 3.0.3
+info:
+  title: FinJar Core API
+  version: 1.0.0
+  description: |
+    REST API модульного моноліту FinJar (Django REST Framework).
+    Усі грошові суми передаються рядками з десятковою крапкою (decimal string), щоб уникнути похибок float.
+    Помилки повертаються у форматі RFC 7807 (application/problem+json).
+servers:
+  - url: https://api.finjar.local/api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+  - name: wallets
+  - name: transactions
+  - name: jars
+  - name: fx
+  - name: assistant
+
+paths:
+  /auth/token:
+    post:
+      tags: [auth]
+      summary: Отримати пару JWT (SRS-FUN-01)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: Токени видано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/token/refresh:
+    post:
+      tags: [auth]
+      summary: Ротація refresh-токена (SRS-NFR-SEC-01)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh]
+              properties:
+                refresh: { type: string }
+      responses:
+        '200':
+          description: Нова пара токенів
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /wallets:
+    get:
+      tags: [wallets]
+      summary: Список гаманців поточного бюджету
+      parameters:
+        - $ref: '#/components/parameters/BudgetId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Сторінка гаманців
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Wallet' }
+                  next_cursor: { type: string, nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [wallets]
+      summary: Створити гаманець (SRS-FUN-02, SRS-FUN-03)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletCreate'
+      responses:
+        '201':
+          description: Гаманець створено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Wallet' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /transactions:
+    get:
+      tags: [transactions]
+      summary: Журнал транзакцій з фільтрами
+      parameters:
+        - $ref: '#/components/parameters/BudgetId'
+        - name: wallet_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Сторінка транзакцій
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+                  next_cursor: { type: string, nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [transactions]
+      summary: Зареєструвати транзакцію з проводками подвійного запису (SRS-FUN-04, SRS-FUN-05)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransactionCreate' }
+      responses:
+        '201':
+          description: Транзакцію зафіксовано; для типу income створено подію розподілу
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transaction' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /jars:
+    get:
+      tags: [jars]
+      summary: Список баночок з балансами
+      parameters:
+        - $ref: '#/components/parameters/BudgetId'
+      responses:
+        '200':
+          description: Баночки
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Jar' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /jars/allocation-rules:
+    put:
+      tags: [jars]
+      summary: Замінити набір процентних правил розподілу (SRS-FUN-07)
+      parameters:
+        - $ref: '#/components/parameters/BudgetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items: { $ref: '#/components/schemas/AllocationRule' }
+      responses:
+        '200':
+          description: Правила збережено (сума часток = 100.00)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AllocationRule' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /jars/{jarId}/withdrawals:
+    post:
+      tags: [jars]
+      summary: Зняти кошти з баночки з коментарем (SRS-FUN-09)
+      parameters:
+        - name: jarId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JarWithdrawal' }
+      responses:
+        '201':
+          description: Зняття зафіксовано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transaction' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /fx/rates:
+    get:
+      tags: [fx]
+      summary: Курс валютної пари на дату (SRS-FUN-06)
+      parameters:
+        - name: base
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/CurrencyCode' }
+        - name: quote
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/CurrencyCode' }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Курс
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FxRate' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /assistant/queries:
+    post:
+      tags: [assistant]
+      summary: Запит до LLM-асистента (SRS-FUN-13, SRS-NFR-PERF-04)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string, minLength: 1, maxLength: 1000 }
+                budget_id: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Відповідь асистента
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer: { type: string }
+                  tools_used:
+                    type: array
+                    items: { type: string }
+        '402':
+          description: Функція недоступна для поточного тарифу (SRS-FUN-12)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '504':
+          description: Перевищено таймаут LLM Provider (20 с)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /webhooks/bank:
+    post:
+      tags: [transactions]
+      summary: Прийом події банківської транзакції (SRS-NFR-SEC-04)
+      security: []
+      parameters:
+        - name: X-Signature
+          in: header
+          required: true
+          description: HMAC-SHA256 від тіла запиту
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, account_ref, amount, currency, occurred_at]
+              properties:
+                event_id: { type: string, maxLength: 64 }
+                account_ref: { type: string, maxLength: 64 }
+                amount: { $ref: '#/components/schemas/Money' }
+                currency: { $ref: '#/components/schemas/CurrencyCode' }
+                occurred_at: { type: string, format: date-time }
+      responses:
+        '202': { description: Подію прийнято до обробки }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BudgetId:
+      name: budget_id
+      in: query
+      required: true
+      schema: { type: string, format: uuid }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Унікальний ключ запиту (UUID) для захисту від повторного створення
+      schema: { type: string, format: uuid }
+
+  responses:
+    BadRequest:
+      description: Некоректний формат запиту
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Відсутній або недійсний JWT / підпис
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Недостатньо прав (RBAC) для бюджету
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Ресурс не знайдено
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Конфлікт стану (недостатньо коштів, повторний Idempotency-Key з іншим тілом)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unprocessable:
+      description: Порушення бізнес-правил (сума часток ≠ 100, незбалансовані проводки)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TooManyRequests:
+      description: Перевищено ліміт запитів (SRS-NFR-SEC-03)
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    Money:
+      type: string
+      pattern: '^-?\d{1,15}(\.\d{1,8})?$'
+      description: Десяткова сума (NUMERIC(23,8)); до 8 знаків після коми для криптовалют
+      example: '15000.00'
+    CurrencyCode:
+      type: string
+      pattern: '^[A-Z0-9]{3,10}$'
+      description: ISO 4217 (UAH, USD, EUR) або тикер криптоактиву (BTC, USDT)
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        trace_id: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+    TokenRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+    TokenPair:
+      type: object
+      properties:
+        access: { type: string }
+        refresh: { type: string }
+        access_expires_in: { type: integer, example: 900 }
+    WalletType:
+      type: string
+      enum: [bank_card, credit_card, crypto_wallet, cash]
+    WalletCreate:
+      type: object
+      required: [budget_id, name, type, currency]
+      properties:
+        budget_id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        type: { $ref: '#/components/schemas/WalletType' }
+        currency: { $ref: '#/components/schemas/CurrencyCode' }
+        credit_limit: { $ref: '#/components/schemas/Money' }
+    Wallet:
+      allOf:
+        - $ref: '#/components/schemas/WalletCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            balance: { $ref: '#/components/schemas/Money' }
+            debt: { $ref: '#/components/schemas/Money' }
+            created_at: { type: string, format: date-time }
+    EntryInput:
+      type: object
+      required: [account_id, direction, amount]
+      properties:
+        account_id: { type: string, format: uuid, description: Гаманець або баночка (ledger account) }
+        direction: { type: string, enum: [debit, credit] }
+        amount: { $ref: '#/components/schemas/Money' }
+    TransactionCreate:
+      type: object
+      required: [budget_id, kind, occurred_at, entries]
+      properties:
+        budget_id: { type: string, format: uuid }
+        kind: { type: string, enum: [income, expense, transfer, jar_withdrawal] }
+        occurred_at: { type: string, format: date-time }
+        description: { type: string, maxLength: 500 }
+        entries:
+          type: array
+          minItems: 2
+          maxItems: 50
+          items: { $ref: '#/components/schemas/EntryInput' }
+    LedgerEntry:
+      allOf:
+        - $ref: '#/components/schemas/EntryInput'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            currency: { $ref: '#/components/schemas/CurrencyCode' }
+            fx_rate: { type: string, pattern: '^\d{1,12}(\.\d{1,10})?$' }
+            amount_base: { $ref: '#/components/schemas/Money' }
+    Transaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        budget_id: { type: string, format: uuid }
+        kind: { type: string, enum: [income, expense, transfer, jar_withdrawal, allocation] }
+        occurred_at: { type: string, format: date-time }
+        description: { type: string }
+        entries:
+          type: array
+          items: { $ref: '#/components/schemas/LedgerEntry' }
+    Jar:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 100 }
+        currency: { $ref: '#/components/schemas/CurrencyCode' }
+        balance: { $ref: '#/components/schemas/Money' }
+    AllocationRule:
+      type: object
+      required: [jar_id, percent, priority]
+      properties:
+        jar_id: { type: string, format: uuid }
+        percent:
+          type: string
+          pattern: '^\d{1,3}(\.\d{1,2})?$'
+          description: Частка у відсотках, NUMERIC(5,2)
+        priority: { type: integer, minimum: 1, maximum: 20 }
+    JarWithdrawal:
+      type: object
+      required: [amount, target_wallet_id, comment]
+      properties:
+        amount: { $ref: '#/components/schemas/Money' }
+        target_wallet_id: { type: string, format: uuid }
+        comment: { type: string, minLength: 1, maxLength: 500 }
+    FxRate:
+      type: object
+      properties:
+        base: { $ref: '#/components/schemas/CurrencyCode' }
+        quote: { $ref: '#/components/schemas/CurrencyCode' }
+        rate: { type: string, pattern: '^\d{1,12}(\.\d{1,10})?$' }
+        on_date: { type: string, format: date }
+        source: { type: string }
